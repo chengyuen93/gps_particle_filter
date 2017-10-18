@@ -53,6 +53,10 @@ class ParticleFilter:
 	def odom_callback(self, data):
 		self.new_odom_xy_theta = [data.x, data.y, data.z] 	#lon, lat, bearing
 		self.odom_data = True
+		if not self.particle_cloud:
+			self.initialize_particle_cloud(self.new_odom_xy_theta)
+			return
+		self.update_particles_with_odom()
 
 	def gps_callback(self, data):
 		global current_time, last_time, interval
@@ -64,20 +68,24 @@ class ParticleFilter:
 		if not (self.initialized):
 			return
 		if not self.pose_set:
+			# if self.odom_data:
+			# self.initialize_particle_cloud(self.new_odom_xy_theta)
+			self.pose_set = True
+			last_time = rospy.get_time()
+			current_time = rospy.get_time()
+			return
+			# else:
+				# return
+		
+		if not self.particle_cloud:
 			if self.odom_data:
 				self.initialize_particle_cloud(self.new_odom_xy_theta)
-				self.pose_set = True
-				last_time = rospy.get_time()
-				current_time = rospy.get_time()
+				self.current_odom_xy_theta = self.new_odom_xy_theta
 				return
 			else:
 				return
-		
-		if not self.particle_cloud:
-			self.initialize_particle_cloud(self.new_odom_xy_theta)
-			self.current_odom_xy_theta = self.new_odom_xy_theta
 		elif interval > 0:
-			self.update_particles_with_odom()
+			# self.update_particles_with_odom()
 			self.update_particles_with_gps()
 				
 			current_time = rospy.get_time()
@@ -88,7 +96,7 @@ class ParticleFilter:
 				self.resample_particles()
 				last_time = rospy.get_time()
 		elif interval <= 0:
-			self.update_particles_with_odom()
+			# self.update_particles_with_odom()
 			self.update_particles_with_gps()
 			self.update_robot_pose()
 			self.resample_particles()
@@ -108,16 +116,16 @@ class ParticleFilter:
 		for particle in self.particle_cloud:
 			x += particle.x * particle.w
 			y += particle.y * particle.w
-			v += math.radians(particle.theta) * particle.w 
-		theta = math.degrees(v)
-		if theta < 0.0:
-			theta = theta + 360.0
-		elif theta >= 360:
-			theta = theta - 360.0
+		# 	v += math.radians(particle.theta) * particle.w 
+		# theta = math.degrees(v)
+		# if theta < 0.0:
+		# 	theta = theta + 360.0
+		# elif theta >= 360:
+		# 	theta = theta - 360.0
 		pose = Vector3()
 		pose.x = x
 		pose.y = y
-		pose.z = theta
+		# pose.z = theta
 		self.pose_pub.publish(pose)
 
 	def normalize_particles(self):
